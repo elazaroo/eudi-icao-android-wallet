@@ -2,6 +2,7 @@ package dev.eudisovereign.icaowallet.ui
 
 import android.app.Application
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.nfc.NfcAdapter
 import android.nfc.tech.IsoDep
 import android.os.Build
@@ -11,6 +12,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.eudisovereign.icaowallet.R
+import dev.eudisovereign.icaowallet.crypto.BiometricConfirmation
 import dev.eudisovereign.icaowallet.crypto.DeviceKeyMaterial
 import dev.eudisovereign.icaowallet.crypto.KeystoreException
 import dev.eudisovereign.icaowallet.crypto.KeystoreManager
@@ -25,13 +27,17 @@ import dev.eudisovereign.icaowallet.nfc.NfcAvailability
 import dev.eudisovereign.icaowallet.nfc.ReadStep
 import dev.eudisovereign.icaowallet.nfc.StepStatus
 import dev.eudisovereign.icaowallet.nfc.TimedStep
+import dev.eudisovereign.icaowallet.protocol.AgeProofPresentation
 import dev.eudisovereign.icaowallet.protocol.Binding
 import dev.eudisovereign.icaowallet.protocol.DescriptorException
 import dev.eudisovereign.icaowallet.protocol.Derivation
+import dev.eudisovereign.icaowallet.protocol.Groth16Proof
 import dev.eudisovereign.icaowallet.protocol.PartFrame
 import dev.eudisovereign.icaowallet.protocol.Presentation
 import dev.eudisovereign.icaowallet.protocol.SealedEnvelope
 import dev.eudisovereign.icaowallet.protocol.SessionDescriptor
+import dev.eudisovereign.icaowallet.protocol.SessionRequest
+import dev.eudisovereign.icaowallet.protocol.UnsupportedRequestException
 import dev.eudisovereign.icaowallet.protocol.mrzOf
 import dev.eudisovereign.icaowallet.protocol.tamperDg1
 import dev.eudisovereign.icaowallet.report.Attestation
@@ -41,6 +47,15 @@ import dev.eudisovereign.icaowallet.report.Mrz
 import dev.eudisovereign.icaowallet.transport.PeerJsTransport
 import dev.eudisovereign.icaowallet.transport.RelayTransport
 import dev.eudisovereign.icaowallet.transport.Transport
+import dev.eudisovereign.icaowallet.zk.AgeProofStatement
+import dev.eudisovereign.icaowallet.zk.AgeStatement
+import dev.eudisovereign.icaowallet.zk.Groth16Prover
+import dev.eudisovereign.icaowallet.zk.PreparedAgeProof
+import dev.eudisovereign.icaowallet.zk.ProverException
+import dev.eudisovereign.icaowallet.zk.ProvingKeyStore
+import dev.eudisovereign.icaowallet.zk.Witness
+import dev.eudisovereign.icaowallet.zk.WitnessCalculator
+import dev.eudisovereign.icaowallet.zk.prepareAgeProofInputs
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
@@ -61,6 +76,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private const val MAX_TRACE_CAUSES = 6
 
 class WalletViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -92,6 +109,14 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private val _presentation = MutableStateFlow(PresentationState())
     val presentation: StateFlow<PresentationState> = _presentation.asStateFlow()
 
+    private val provingKeys = ProvingKeyStore(application)
+
+    private val _ageProof = MutableStateFlow(AgeProofState())
+    val ageProof: StateFlow<AgeProofState> = _ageProof.asStateFlow()
+
+    private val _provingKey = MutableStateFlow(ProvingKeyState())
+    val provingKey: StateFlow<ProvingKeyState> = _provingKey.asStateFlow()
+
     private val accepted = Channel<Unit>(Channel.CONFLATED)
     val descriptorAccepted: Flow<Unit> = accepted.receiveAsFlow()
 
@@ -99,6 +124,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private val enrolmentLock = Any()
     private var armedKey: AccessKey? = null
     private var presentationJob: Job? = null
+    private var ageJob: Job? = null
+    private var eligibilityJob: Job? = null
+    private var keyImportJob: Job? = null
     private var technicalJob: Job? = null
     private val tagClaimed = AtomicBoolean(false)
     private val scanInFlight = AtomicBoolean(false)
@@ -112,6 +140,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             _storeState.value = state
         }
         viewModelScope.launch { _identity.value = withContext(Dispatchers.IO) { loadIdentity() } }
+        viewModelScope.launch { _provingKey.value = ProvingKeyState(withContext(Dispatchers.IO) { provingKeyStatus() }) }
     }
 
     private fun loadIdentity(): IdentityState = try {
@@ -166,7 +195,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun deleteEnrollment() {
-        if (enrolmentJob?.isActive == true || presentationJob?.isActive == true) return
+        if (enrolmentJob?.isActive == true || presentationJob?.isActive == true || ageJob?.isActive == true) return
         viewModelScope.launch {
             wipeEnrollment()?.let { _storeState.value = StoreState.Failed(Failure(Problem.DELETE_FAILED, it)) }
             _presentation.value = PresentationState()
@@ -208,7 +237,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         val formProblems = form.problems()
         val readinessProblems = readiness?.let(Problems::ofReadiness).orEmpty()
         val blocker = when {
-            presentationJob?.isActive == true -> Failure(Problem.BUSY, "A presentation is in progress")
+            presentationJob?.isActive == true || ageJob?.isActive == true ->
+                Failure(Problem.BUSY, "A presentation is in progress")
             readinessProblems.isNotEmpty() ->
                 Failure(readinessProblems.first(), "NFC ${readiness?.nfc}, biometric ${readiness?.biometric}")
             readiness == null -> Failure(Problem.BUSY, "Device readiness has not been determined yet")
@@ -384,16 +414,27 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
 
     // Called on the main thread by the barcode analyzer for every frame that contains a QR code.
     fun onQrScanned(text: String) {
-        if (text == lastScanned || presentationJob?.isActive == true || !scanInFlight.compareAndSet(false, true)) return
+        if (text == lastScanned || presentationJob?.isActive == true || ageJob?.isActive == true ||
+            !scanInFlight.compareAndSet(false, true)
+        ) {
+            return
+        }
         lastScanned = text
         viewModelScope.launch {
             try {
                 val descriptor = withContext(Dispatchers.Default) { SessionDescriptor.parse(text) }
-                _presentation.value = PresentationState(descriptor = descriptor)
+                if (descriptor.request == SessionRequest.AGE_OVER_18) {
+                    _presentation.value = PresentationState()
+                    openAgeSession(descriptor)
+                } else {
+                    _ageProof.value = AgeProofState()
+                    _presentation.value = PresentationState(descriptor = descriptor)
+                }
                 _scanner.value = ScannerState()
                 accepted.trySend(Unit)
             } catch (e: DescriptorException) {
-                _scanner.value = ScannerState(Failure(Problem.INVALID_CODE, e.message ?: "invalid descriptor"))
+                val problem = if (e is UnsupportedRequestException) Problem.UNSUPPORTED_REQUEST else Problem.INVALID_CODE
+                _scanner.value = ScannerState(Failure(problem, e.message ?: "invalid descriptor"))
             } finally {
                 scanInFlight.set(false)
             }
@@ -574,6 +615,213 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private fun setStage(stage: PresentationStage, status: StageStatus, durationMillis: Long?, detail: String?) {
         _presentation.update { state ->
             state.copy(stages = state.stages.map { if (it.stage == stage) StageEntry(stage, status, durationMillis, detail) else it })
+        }
+    }
+
+    private fun provingKeyStatus(): ProvingKeyStatus =
+        if (provingKeys.isInstalled()) ProvingKeyStatus.INSTALLED else ProvingKeyStatus.MISSING
+
+    fun importProvingKey(uri: Uri) {
+        if (keyImportJob?.isActive == true || ageJob?.isActive == true) return
+        _provingKey.value = ProvingKeyState(ProvingKeyStatus.IMPORTING)
+        keyImportJob = viewModelScope.launch {
+            val failure = try {
+                provingKeys.import(uri) { copied -> _provingKey.update { it.copy(copiedBytes = copied) } }
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Failure(Problems.ofKeyImport(e), Problems.detail(e))
+            }
+            _provingKey.value = ProvingKeyState(withContext(Dispatchers.IO) { provingKeyStatus() }, failure = failure)
+        }
+    }
+
+    private fun openAgeSession(descriptor: SessionDescriptor) {
+        eligibilityJob?.cancel()
+        _ageProof.value = AgeProofState(descriptor = descriptor)
+        val enrollment = (_storeState.value as? StoreState.Loaded)?.overview?.enrollment ?: return
+        eligibilityJob = viewModelScope.launch {
+            val failure = withContext(Dispatchers.Default) {
+                try {
+                    prepareAgeProofInputs(enrollment.dg1, enrollment.sod, ageStatement(descriptor))
+                    null
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Failure(Problems.ofAgeProof(e), Problems.detail(e))
+                }
+            }
+            _ageProof.update {
+                if (it.descriptor === descriptor) it.copy(eligibilityChecked = true, notProvable = failure) else it
+            }
+        }
+    }
+
+    private fun ageStatement(descriptor: SessionDescriptor): AgeProofStatement = AgeProofStatement(
+        currentDate = AgeStatement.dateNumber(System.currentTimeMillis()),
+        ageThreshold = AgeStatement.AGE_THRESHOLD,
+        challenge = AgeStatement.challenge(descriptor.nonce, descriptor.origin),
+    )
+
+    fun selectAgeTransport(choice: TransportChoice) {
+        _ageProof.update { state ->
+            val allowed = state.phase != PresentationPhase.RUNNING && !state.consumed &&
+                (choice == TransportChoice.PEERJS || state.descriptor?.relay != null)
+            if (allowed) state.copy(transport = choice) else state
+        }
+    }
+
+    fun cancelAgeProof() {
+        ageJob?.cancel()
+    }
+
+    fun proveAge(activity: FragmentActivity) {
+        val state = _ageProof.value
+        val descriptor = state.descriptor ?: return
+        if (ageJob?.isActive == true || state.consumed) return
+        val enrollment = (_storeState.value as? StoreState.Loaded)?.overview?.enrollment
+        val biometric = _readiness.value?.biometric
+        val blocker = when {
+            enrolmentJob?.isActive == true || _enrolment.value.phase.busy ->
+                Failure(Problem.BUSY, "The age proof is not possible while an enrolment read is running.")
+            presentationJob?.isActive == true -> Failure(Problem.BUSY, "A presentation is in progress")
+            keyImportJob?.isActive == true -> Failure(Problem.BUSY, "The proving key is being imported")
+            enrollment == null -> Failure(Problem.NO_DOCUMENT, "Enrol a document before proving its holder's age.")
+            !provingKeys.isInstalled() ->
+                Failure(Problem.PROVING_KEY_MISSING, "${ProvingKeyStore.FILE_NAME} is not in the app storage")
+            biometric != BiometricReadiness.READY -> Failure(
+                biometric?.let(Problems::ofBiometric) ?: Problem.BIOMETRIC_UNAVAILABLE,
+                "BiometricManager BIOMETRIC_STRONG: ${biometric ?: "status unknown"}",
+            )
+            else -> null
+        }
+        if (blocker != null || enrollment == null) {
+            _ageProof.update { it.copy(phase = PresentationPhase.FAILED, failure = blocker, failureTrace = null) }
+            return
+        }
+        val transportChoice = state.transport
+        val promptTitle = activity.getString(R.string.age_biometric_title)
+        val promptCancel = activity.getString(R.string.action_cancel)
+        _ageProof.update {
+            it.copy(
+                phase = PresentationPhase.RUNNING,
+                stages = AgeStage.entries.map { stage -> AgeStageEntry(stage, StageStatus.PENDING, null, null) },
+                result = null,
+                failure = null,
+                failureTrace = null,
+            )
+        }
+        ageJob = viewModelScope.launch {
+            try {
+                requireFresh(descriptor)
+                ageStage(AgeStage.CONFIRMATION, { "confirmed; no device key is used" }) {
+                    BiometricConfirmation.confirm(activity, promptTitle, descriptor.origin, promptCancel)
+                }
+                val keyFile = provingKeys.requireInstalled()
+                val statement = ageStatement(descriptor)
+                val (prepared, inputsJson) = ageStage(AgeStage.INPUTS, ::describeInputs) {
+                    withContext(Dispatchers.Default) {
+                        val prepared = prepareAgeProofInputs(enrollment.dg1, enrollment.sod, statement)
+                        prepared to prepared.inputs.toJson()
+                    }
+                }
+                val output = run {
+                    val witness = ageStage(AgeStage.WITNESS, ::describeWitness) {
+                        WitnessCalculator(getApplication()).calculate(inputsJson)
+                    }
+                    ageStage(AgeStage.PROOF, { "proof ${it.first.length} bytes, public signals ${it.second.length} bytes" }) {
+                        val raw = withContext(Dispatchers.Default) { Groth16Prover.prove(keyFile, witness.bytes) }
+                        raw.proofJson to raw.publicSignalsJson
+                    }
+                }
+                val envelope = ageStage(AgeStage.ENVELOPE, { it.second }) {
+                    withContext(Dispatchers.Default) {
+                        val proof = Groth16Proof.parse(output.first)
+                        val signals = Groth16Proof.parsePublicSignals(output.second)
+                        val expected = AgeStatement.publicSignals(
+                            prepared.modulus,
+                            statement.currentDate,
+                            statement.ageThreshold,
+                            statement.challenge,
+                        )
+                        val mismatch = expected.indices.firstOrNull { signals[it] != expected[it] }
+                        if (mismatch != null) {
+                            throw ProverException("public signal $mismatch is ${signals[mismatch]}, the statement has ${expected[mismatch]}")
+                        }
+                        val plaintext = AgeProofPresentation.build(prepared.dsCertificate, proof, signals).toJson()
+                        requireFresh(descriptor)
+                        val sealed = SealedEnvelope.seal(descriptor, plaintext)
+                        val ageSeconds = (System.currentTimeMillis() - descriptor.timestamp) / 1000
+                        sealed to "plaintext ${plaintext.toByteArray(Charsets.UTF_8).size} bytes " +
+                            "(dsCertificate ${prepared.dsCertificate.size} bytes), envelope: " +
+                            envelopeDetail(sealed, transportChoice) + "; session age $ageSeconds s"
+                    }
+                }.first
+                _ageProof.update { it.copy(consumed = true) }
+                val result = ageStage(AgeStage.DELIVERY, { "result frame received, ok=${it.ok}" }) {
+                    transportFor(transportChoice).deliver(descriptor, envelope)
+                }
+                _ageProof.update { it.copy(phase = PresentationPhase.FINISHED, result = result) }
+            } catch (e: CancellationException) {
+                _ageProof.update {
+                    val failure = if (it.consumed) {
+                        Failure(
+                            Problem.CANCELLED_AFTER_SEND,
+                            "Cancelled after delivery started; the verifier session may already be consumed.",
+                        )
+                    } else {
+                        Failure(Problem.CANCELLED_BEFORE_SEND, "Cancelled before anything was sent to the verifier.")
+                    }
+                    it.copy(phase = PresentationPhase.FAILED, failure = failure)
+                }
+                throw e
+            } catch (e: Exception) {
+                _ageProof.update {
+                    it.copy(
+                        phase = PresentationPhase.FAILED,
+                        failure = Failure(Problems.ofAgeProof(e), Problems.detail(e)),
+                        failureTrace = failureTrace(e),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun describeInputs(value: Pair<PreparedAgeProof, String>): String {
+        val prepared = value.first
+        return "${prepared.profile}, hash parameters ${prepared.hashParameters.name.lowercase()}, " +
+            "signedAttrs ${prepared.signedAttrsLength} bytes, eContent ${prepared.eContentLength} bytes, " +
+            "inputs JSON ${value.second.length} bytes"
+    }
+
+    private fun describeWitness(witness: Witness): String =
+        "${witness.bytes.size} bytes; wasm load and compile ${witness.loadMillis} ms, " +
+            "calculation ${witness.computeMillis} ms, transfer ${witness.transferMillis} ms"
+
+    private fun failureTrace(e: Throwable): String = generateSequence(e) { it.cause }
+        .take(MAX_TRACE_CAUSES)
+        .joinToString("\ncaused by ") { "${it.javaClass.name}: ${it.message}" }
+
+    private suspend fun <T> ageStage(stage: AgeStage, describe: (T) -> String, block: suspend () -> T): T {
+        val started = SystemClock.elapsedRealtime()
+        setAgeStage(stage, StageStatus.RUNNING, null, null)
+        val value = try {
+            block()
+        } catch (e: CancellationException) {
+            setAgeStage(stage, StageStatus.CANCELLED, SystemClock.elapsedRealtime() - started, null)
+            throw e
+        } catch (e: Exception) {
+            setAgeStage(stage, StageStatus.FAILED, SystemClock.elapsedRealtime() - started, "${e.javaClass.simpleName}: ${e.message}")
+            throw e
+        }
+        setAgeStage(stage, StageStatus.DONE, SystemClock.elapsedRealtime() - started, describe(value))
+        return value
+    }
+
+    private fun setAgeStage(stage: AgeStage, status: StageStatus, durationMillis: Long?, detail: String?) {
+        _ageProof.update { state ->
+            state.copy(stages = state.stages.map { if (it.stage == stage) AgeStageEntry(stage, status, durationMillis, detail) else it })
         }
     }
 

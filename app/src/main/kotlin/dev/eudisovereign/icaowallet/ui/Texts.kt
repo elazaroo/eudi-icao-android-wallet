@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import dev.eudisovereign.icaowallet.R
 import dev.eudisovereign.icaowallet.nfc.AccessKeyKind
 import dev.eudisovereign.icaowallet.nfc.NfcAvailability
+import dev.eudisovereign.icaowallet.protocol.AgeProofChecks
 import dev.eudisovereign.icaowallet.report.MrzFieldId
 import dev.eudisovereign.icaowallet.report.SodCoverage
 
@@ -40,6 +41,12 @@ fun Problem.titleRes(): Int = when (this) {
     Problem.DELIVERY_FAILED -> R.string.problem_delivery_failed
     Problem.CANCELLED_BEFORE_SEND -> R.string.problem_cancelled_before_send
     Problem.CANCELLED_AFTER_SEND -> R.string.problem_cancelled_after_send
+    Problem.UNSUPPORTED_REQUEST -> R.string.problem_unsupported_request
+    Problem.AGE_NOT_PROVABLE -> R.string.problem_age_not_provable
+    Problem.PROVING_KEY_MISSING -> R.string.problem_proving_key_missing
+    Problem.PROOF_FAILED -> R.string.problem_proof_failed
+    Problem.KEY_FILE_REJECTED -> R.string.problem_key_file_rejected
+    Problem.KEY_IMPORT_FAILED -> R.string.problem_key_import_failed
     Problem.UNEXPECTED -> R.string.problem_unexpected
 }
 
@@ -64,6 +71,12 @@ fun Problem.hintRes(): Int? = when (this) {
     Problem.BIOMETRIC_LOCKED -> R.string.hint_biometric_locked
     Problem.VERIFIER_UNREACHABLE -> R.string.hint_verifier_unreachable
     Problem.DELIVERY_TIMEOUT, Problem.DELIVERY_FAILED, Problem.CANCELLED_AFTER_SEND -> R.string.hint_new_code
+    Problem.UNSUPPORTED_REQUEST -> R.string.hint_unsupported_request
+    Problem.AGE_NOT_PROVABLE -> R.string.hint_age_not_provable
+    Problem.PROVING_KEY_MISSING -> R.string.hint_proving_key_missing
+    Problem.PROOF_FAILED -> R.string.hint_try_again
+    Problem.KEY_FILE_REJECTED -> R.string.hint_key_file_rejected
+    Problem.KEY_IMPORT_FAILED -> R.string.hint_key_import_failed
     Problem.BUSY, Problem.READ_CANCELLED, Problem.NO_DOCUMENT, Problem.DELETE_FAILED, Problem.TECHNICAL_UNAVAILABLE,
     Problem.BIOMETRIC_CANCELLED, Problem.SIGNING_FAILED, Problem.CANCELLED_BEFORE_SEND,
     -> null
@@ -101,8 +114,23 @@ fun checkTitleRes(id: String): Int? = when (id) {
     "data-integrity" -> R.string.check_data_integrity
     "chip-binding" -> R.string.check_chip_binding
     "nonce-proof" -> R.string.check_nonce_proof
+    AgeProofChecks.DOCUMENT_SIGNER -> R.string.check_document_signer
+    AgeProofChecks.PUBLIC_STATEMENT -> R.string.check_public_statement
+    AgeProofChecks.ZERO_KNOWLEDGE_PROOF -> R.string.check_zero_knowledge_proof
     else -> null
 }
+
+@StringRes
+fun AgeProgress.labelRes(): Int = when (this) {
+    AgeProgress.PREPARING -> R.string.age_progress_preparing
+    AgeProgress.COMPUTING -> R.string.age_progress_computing
+    AgeProgress.PROVING -> R.string.age_progress_proving
+    AgeProgress.SENDING -> R.string.age_progress_sending
+}
+
+/** What an age-over-18 session sends and what it keeps, in display order. */
+val ageSentCategories: List<Int> = listOf(R.string.age_sent_proof, R.string.age_sent_certificate, R.string.age_sent_date)
+val ageKeptCategories: List<Int> = listOf(R.string.data_full_name, R.string.data_document_number, R.string.data_date_of_birth)
 
 @StringRes
 fun NfcAvailability.descriptionRes(): Int = when (this) {

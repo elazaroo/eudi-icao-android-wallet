@@ -1,7 +1,11 @@
 package dev.eudisovereign.icaowallet.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -10,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -28,6 +33,7 @@ import dev.eudisovereign.icaowallet.report.SodCoverage
 import dev.eudisovereign.icaowallet.report.TechnicalReport
 import dev.eudisovereign.icaowallet.ui.theme.Mono
 import dev.eudisovereign.icaowallet.ui.theme.StatusColors
+import dev.eudisovereign.icaowallet.zk.ProvingKeyStore
 
 @Composable
 fun TechnicalScreen(viewModel: WalletViewModel, onBack: () -> Unit) {
@@ -50,8 +56,53 @@ fun TechnicalScreen(viewModel: WalletViewModel, onBack: () -> Unit) {
             }
         }
         Section(stringResource(R.string.tech_section_readiness)) { ReadinessContent(readiness) }
+        Section(stringResource(R.string.tech_section_age_proof)) { ProvingKeyContent(viewModel) }
         Section(stringResource(R.string.tech_section_identity)) { BuildIdentityContent(identity, showPolicyEntry = true) }
     }
+}
+
+@Composable
+private fun ProvingKeyContent(viewModel: WalletViewModel) {
+    val key by viewModel.provingKey.collectAsStateWithLifecycle()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::importProvingKey)
+    }
+    val megabyte = 1024L * 1024L
+    val status = when (key.status) {
+        ProvingKeyStatus.CHECKING -> stringResource(R.string.tech_key_checking)
+        ProvingKeyStatus.MISSING -> stringResource(R.string.tech_key_missing)
+        ProvingKeyStatus.INSTALLED -> stringResource(R.string.tech_key_installed)
+        ProvingKeyStatus.IMPORTING -> stringResource(
+            R.string.tech_key_importing,
+            key.copiedBytes / megabyte,
+            ProvingKeyStore.EXPECTED_SIZE / megabyte,
+        )
+    }
+    Field(
+        label = stringResource(R.string.tech_key_label),
+        value = status,
+        valueColor = when (key.status) {
+            ProvingKeyStatus.INSTALLED -> StatusColors.pass
+            ProvingKeyStatus.MISSING -> StatusColors.fail
+            else -> Color.Unspecified
+        },
+    )
+    if (key.status == ProvingKeyStatus.IMPORTING) {
+        LinearProgressIndicator(
+            progress = { (key.copiedBytes.toFloat() / ProvingKeyStore.EXPECTED_SIZE).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    Field(stringResource(R.string.tech_key_file), ProvingKeyStore.FILE_NAME, mono = true)
+    Field(stringResource(R.string.tech_key_size), stringResource(R.string.tech_key_size_value, ProvingKeyStore.EXPECTED_SIZE), mono = true)
+    Field(stringResource(R.string.tech_key_sha256), ProvingKeyStore.EXPECTED_SHA256, mono = true)
+    Note(stringResource(R.string.tech_key_note))
+    key.failure?.let { ProblemCard(it) }
+    SecondaryAction(
+        text = stringResource(R.string.tech_key_import),
+        enabled = key.status == ProvingKeyStatus.MISSING || key.status == ProvingKeyStatus.INSTALLED,
+        onClick = { launcher.launch(arrayOf("*/*")) },
+    )
 }
 
 @Composable

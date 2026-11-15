@@ -8,7 +8,17 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-class DescriptorException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class DescriptorException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+class UnsupportedRequestException(val request: String) : DescriptorException(
+    "The session asks for \"$request\", which this wallet does not provide; " +
+        "it answers the full presentation or \"${SessionRequest.AGE_OVER_18.wire}\"",
+)
+
+/** Spec 8.1: the optional `request` member; absent means the full presentation of section 4. */
+enum class SessionRequest(val wire: String) {
+    AGE_OVER_18("age-over-18"),
+}
 
 class SessionDescriptor private constructor(
     val peerId: String,
@@ -18,6 +28,7 @@ class SessionDescriptor private constructor(
     val origin: String,
     val ek: ByteArray,
     val relay: String?,
+    val request: SessionRequest?,
 ) {
     fun isFresh(nowMillis: Long): Boolean = withinSkew(timestamp, nowMillis)
 
@@ -36,6 +47,9 @@ class SessionDescriptor private constructor(
                 throw DescriptorException("Session descriptor is not valid JSON: ${e.message}", e)
             }
             if (wire.v != VERSION) throw DescriptorException("Unsupported descriptor version ${wire.v}")
+            val request = wire.request?.let { value ->
+                SessionRequest.entries.firstOrNull { it.wire == value } ?: throw UnsupportedRequestException(value)
+            }
             if (wire.peerId.isBlank()) throw DescriptorException("peerId is empty")
 
             val nonceBytes = try {
@@ -66,7 +80,7 @@ class SessionDescriptor private constructor(
                 }
             }
 
-            return SessionDescriptor(wire.peerId, wire.nonce, nonceBytes, wire.timestamp, wire.origin, ek, relay)
+            return SessionDescriptor(wire.peerId, wire.nonce, nonceBytes, wire.timestamp, wire.origin, ek, relay, request)
         }
 
         // Written without subtraction of the untrusted timestamp, which could overflow.
@@ -100,5 +114,6 @@ class SessionDescriptor private constructor(
         val origin: String,
         val ek: String,
         val relay: String? = null,
+        val request: String? = null,
     )
 }

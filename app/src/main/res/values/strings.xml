@@ -106,6 +106,26 @@
     <string name="confirm_action">Confirm with fingerprint</string>
     <string name="sending_text">Sending your data to %1$s</string>
 
+    <string name="age_biometric_title">Confirm the age check for</string>
+    <string name="age_site_label">This site only wants to check that you are over 18</string>
+    <string name="age_sent_title">What is sent</string>
+    <string name="age_sent_proof">A proof that you are over 18</string>
+    <string name="age_sent_certificate">The certificate of the authority that signed your document</string>
+    <string name="age_sent_date">Today\'s date</string>
+    <string name="age_sent_note">The proof is computed on this phone from your document. The certificate shows which authority signed the document and when that authority was in use.</string>
+    <string name="age_kept_title">What is not sent</string>
+    <string name="age_checking_document">Checking that your document can be used for this proof.</string>
+    <string name="age_key_missing_text">The age proof needs a proving key of 243 MB that is not included in the app. Import the file age_proof.zkey in the technical view, section Age proof.</string>
+    <string name="age_key_importing">The proving key is being imported in the technical view.</string>
+    <string name="age_open_technical">Open technical view</string>
+    <string name="age_running_text">Proving to %1$s that you are over 18</string>
+    <string name="age_progress_preparing">Preparing</string>
+    <string name="age_progress_computing">Computing</string>
+    <string name="age_progress_proving">Generating the proof</string>
+    <string name="age_progress_sending">Sending</string>
+    <string name="age_request_label">Request</string>
+    <string name="age_files_sent">Groth16 proof, public signals, DS certificate</string>
+
     <string name="data_full_name">Full name</string>
     <string name="data_document_number">Document number</string>
     <string name="data_personal_number">Personal number</string>
@@ -148,6 +168,9 @@
     <string name="check_data_integrity">Data not altered</string>
     <string name="check_chip_binding">Phone linked to the document</string>
     <string name="check_nonce_proof">Live session</string>
+    <string name="check_document_signer">Signed by the State</string>
+    <string name="check_public_statement">Over 18 today, for this session</string>
+    <string name="check_zero_knowledge_proof">Valid proof</string>
 
     <string name="problem_wrong_can">The CAN is not correct</string>
     <string name="problem_wrong_document_data">The document details are not correct</string>
@@ -180,6 +203,12 @@
     <string name="problem_delivery_failed">The data could not be sent</string>
     <string name="problem_cancelled_before_send">Cancelled. Nothing was sent.</string>
     <string name="problem_cancelled_after_send">Cancelled while sending</string>
+    <string name="problem_unsupported_request">The website asks for something this wallet cannot provide</string>
+    <string name="problem_age_not_provable">This document cannot prove it</string>
+    <string name="problem_proving_key_missing">The proving key is not installed</string>
+    <string name="problem_proof_failed">The proof could not be generated</string>
+    <string name="problem_key_file_rejected">This file is not the proving key</string>
+    <string name="problem_key_import_failed">The proving key could not be imported</string>
     <string name="problem_unexpected">Something went wrong</string>
 
     <string name="hint_wrong_can">Check the 6-digit number printed on the front of the card and try again.</string>
@@ -201,6 +230,11 @@
     <string name="hint_biometric_locked">Unlock the phone with its PIN, pattern or password, then try again.</string>
     <string name="hint_verifier_unreachable">Check the internet connection and that the page of the website is still open.</string>
     <string name="hint_new_code">The website may have already used this request. Reload its page and scan the new code.</string>
+    <string name="hint_unsupported_request">This wallet can prove your identity or that you are over 18. Open Details to see what the website asked for.</string>
+    <string name="hint_age_not_provable">Either the holder is not over 18 or the document is not one this proof supports. Nothing was sent.</string>
+    <string name="hint_proving_key_missing">Import the file age_proof.zkey in the technical view, section Age proof.</string>
+    <string name="hint_key_file_rejected">Choose the file age_proof.zkey published with the verifier. Its size and SHA-256 must match exactly.</string>
+    <string name="hint_key_import_failed">Check that the phone has enough free storage and try again.</string>
 
     <string name="readiness_nfc_ready">NFC enabled</string>
     <string name="readiness_nfc_disabled">NFC is switched off</string>
@@ -309,6 +343,18 @@
     <string name="tech_expected_challenge">Expected attestation challenge = SHA-256(EF.SOD)</string>
     <string name="tech_enrolled">Enrolled</string>
     <string name="tech_enrolled_value">%1$s on %2$s, %3$s</string>
+    <string name="tech_section_age_proof">Age proof</string>
+    <string name="tech_key_label">Proving key</string>
+    <string name="tech_key_checking">Checking the app storage.</string>
+    <string name="tech_key_missing">Not installed</string>
+    <string name="tech_key_installed">Installed, SHA-256 verified when it was imported</string>
+    <string name="tech_key_importing">Importing: %1$d of %2$d MB</string>
+    <string name="tech_key_file">File</string>
+    <string name="tech_key_size">Expected size</string>
+    <string name="tech_key_size_value">%1$,d bytes</string>
+    <string name="tech_key_sha256">Expected SHA-256</string>
+    <string name="tech_key_note">The proving key is not part of the app. The chosen file is copied into the private storage of the app while it is hashed, and it is kept only if its size and SHA-256 match.</string>
+    <string name="tech_key_import">Import proving key</string>
 
     <string name="mrz_document_code">Document code</string>
     <string name="mrz_issuing_state">Issuing state</string>

@@ -8,7 +8,12 @@ import dev.eudisovereign.icaowallet.nfc.AccessKeyKind
 import dev.eudisovereign.icaowallet.nfc.NfcAvailability
 import dev.eudisovereign.icaowallet.nfc.ReadException
 import dev.eudisovereign.icaowallet.protocol.DescriptorException
+import dev.eudisovereign.icaowallet.protocol.ProofFormatException
 import dev.eudisovereign.icaowallet.transport.TransportException
+import dev.eudisovereign.icaowallet.zk.AgeProofInputException
+import dev.eudisovereign.icaowallet.zk.ProverException
+import dev.eudisovereign.icaowallet.zk.ProvingKeyException
+import dev.eudisovereign.icaowallet.zk.WitnessException
 
 enum class Problem {
     WRONG_CAN,
@@ -42,6 +47,12 @@ enum class Problem {
     DELIVERY_FAILED,
     CANCELLED_BEFORE_SEND,
     CANCELLED_AFTER_SEND,
+    UNSUPPORTED_REQUEST,
+    AGE_NOT_PROVABLE,
+    PROVING_KEY_MISSING,
+    PROOF_FAILED,
+    KEY_FILE_REJECTED,
+    KEY_IMPORT_FAILED,
     UNEXPECTED,
 }
 
@@ -78,6 +89,16 @@ object Problems {
         is TransportException, is HpkeException -> Problem.DELIVERY_FAILED
         else -> Problem.UNEXPECTED
     }
+
+    fun ofAgeProof(e: Throwable): Problem = when (e) {
+        is AgeProofInputException, is WitnessException.StatementFails -> Problem.AGE_NOT_PROVABLE
+        is ProvingKeyException.Missing -> Problem.PROVING_KEY_MISSING
+        is WitnessException, is ProverException, is ProofFormatException -> Problem.PROOF_FAILED
+        else -> ofPresentation(e)
+    }
+
+    fun ofKeyImport(e: Throwable): Problem =
+        if (e is ProvingKeyException.WrongFile) Problem.KEY_FILE_REJECTED else Problem.KEY_IMPORT_FAILED
 
     fun ofNfc(nfc: NfcAvailability): Problem? = when (nfc) {
         NfcAvailability.READY -> null

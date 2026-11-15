@@ -106,6 +106,26 @@
     <string name="confirm_action">Confirmar con la huella</string>
     <string name="sending_text">Enviando tus datos a %1$s</string>
 
+    <string name="age_biometric_title">Confirma la comprobación de edad para</string>
+    <string name="age_site_label">Este sitio solo quiere comprobar que eres mayor de 18 años</string>
+    <string name="age_sent_title">Qué se envía</string>
+    <string name="age_sent_proof">Una prueba de que eres mayor de 18 años</string>
+    <string name="age_sent_certificate">El certificado de la autoridad que firmó tu documento</string>
+    <string name="age_sent_date">La fecha de hoy</string>
+    <string name="age_sent_note">La prueba se calcula en este teléfono a partir de tu documento. El certificado muestra qué autoridad firmó el documento y en qué periodo estaba en uso.</string>
+    <string name="age_kept_title">Qué no se envía</string>
+    <string name="age_checking_document">Comprobando que tu documento sirve para esta prueba.</string>
+    <string name="age_key_missing_text">La prueba de edad necesita una clave de prueba de 243 MB que no viene incluida en la aplicación. Importa el fichero age_proof.zkey en la vista técnica, sección Prueba de edad.</string>
+    <string name="age_key_importing">La clave de prueba se está importando en la vista técnica.</string>
+    <string name="age_open_technical">Abrir la vista técnica</string>
+    <string name="age_running_text">Demostrando a %1$s que eres mayor de 18 años</string>
+    <string name="age_progress_preparing">Preparando</string>
+    <string name="age_progress_computing">Calculando</string>
+    <string name="age_progress_proving">Generando la prueba</string>
+    <string name="age_progress_sending">Enviando</string>
+    <string name="age_request_label">Solicitud</string>
+    <string name="age_files_sent">Prueba Groth16, señales públicas, certificado DS</string>
+
     <string name="data_full_name">Nombre completo</string>
     <string name="data_document_number">Número de documento</string>
     <string name="data_personal_number">Número personal</string>
@@ -148,6 +168,9 @@
     <string name="check_data_integrity">Datos sin alterar</string>
     <string name="check_chip_binding">Teléfono vinculado al documento</string>
     <string name="check_nonce_proof">Sesión en vivo</string>
+    <string name="check_document_signer">Firmado por el Estado</string>
+    <string name="check_public_statement">Mayor de 18 hoy, para esta sesión</string>
+    <string name="check_zero_knowledge_proof">Prueba válida</string>
 
     <string name="problem_wrong_can">El CAN no es correcto</string>
     <string name="problem_wrong_document_data">Los datos del documento no son correctos</string>
@@ -180,6 +203,12 @@
     <string name="problem_delivery_failed">No se han podido enviar los datos</string>
     <string name="problem_cancelled_before_send">Cancelado. No se ha enviado nada.</string>
     <string name="problem_cancelled_after_send">Cancelado durante el envío</string>
+    <string name="problem_unsupported_request">El sitio web pide algo que esta cartera no puede ofrecer</string>
+    <string name="problem_age_not_provable">Este documento no puede demostrarlo</string>
+    <string name="problem_proving_key_missing">La clave de prueba no está instalada</string>
+    <string name="problem_proof_failed">No se ha podido generar la prueba</string>
+    <string name="problem_key_file_rejected">Este fichero no es la clave de prueba</string>
+    <string name="problem_key_import_failed">No se ha podido importar la clave de prueba</string>
     <string name="problem_unexpected">Algo ha fallado</string>
 
     <string name="hint_wrong_can">Comprueba el número de 6 cifras impreso en el anverso de la tarjeta y vuelve a intentarlo.</string>
@@ -201,6 +230,11 @@
     <string name="hint_biometric_locked">Desbloquea el teléfono con su PIN, patrón o contraseña y vuelve a intentarlo.</string>
     <string name="hint_verifier_unreachable">Comprueba la conexión a internet y que la página del sitio web sigue abierta.</string>
     <string name="hint_new_code">Puede que el sitio web ya haya usado esta solicitud. Recarga su página y escanea el código nuevo.</string>
+    <string name="hint_unsupported_request">Esta cartera puede acreditar tu identidad o que eres mayor de 18 años. Abre Detalles para ver qué ha pedido el sitio web.</string>
+    <string name="hint_age_not_provable">O el titular no es mayor de 18 años o el documento no es de los que admite esta prueba. No se ha enviado nada.</string>
+    <string name="hint_proving_key_missing">Importa el fichero age_proof.zkey en la vista técnica, sección Prueba de edad.</string>
+    <string name="hint_key_file_rejected">Elige el fichero age_proof.zkey publicado con el verificador. Su tamaño y su SHA-256 deben coincidir exactamente.</string>
+    <string name="hint_key_import_failed">Comprueba que el teléfono tiene suficiente espacio libre y vuelve a intentarlo.</string>
 
     <string name="readiness_nfc_ready">NFC activado</string>
     <string name="readiness_nfc_disabled">El NFC está desactivado</string>
@@ -309,6 +343,18 @@
     <string name="tech_expected_challenge">Reto de atestación esperado = SHA-256(EF.SOD)</string>
     <string name="tech_enrolled">Alta</string>
     <string name="tech_enrolled_value">%1$s en %2$s, %3$s</string>
+    <string name="tech_section_age_proof">Prueba de edad</string>
+    <string name="tech_key_label">Clave de prueba</string>
+    <string name="tech_key_checking">Comprobando el almacenamiento de la aplicación.</string>
+    <string name="tech_key_missing">No instalada</string>
+    <string name="tech_key_installed">Instalada, SHA-256 verificado al importarla</string>
+    <string name="tech_key_importing">Importando: %1$d de %2$d MB</string>
+    <string name="tech_key_file">Fichero</string>
+    <string name="tech_key_size">Tamaño esperado</string>
+    <string name="tech_key_size_value">%1$,d bytes</string>
+    <string name="tech_key_sha256">SHA-256 esperado</string>
+    <string name="tech_key_note">La clave de prueba no forma parte de la aplicación. El fichero elegido se copia al almacenamiento privado de la aplicación mientras se calcula su hash, y solo se conserva si su tamaño y su SHA-256 coinciden.</string>
+    <string name="tech_key_import">Importar la clave de prueba</string>
 
     <string name="mrz_document_code">Código de documento</string>
     <string name="mrz_issuing_state">Estado emisor</string>

@@ -1,6 +1,8 @@
 package dev.eudisovereign.icaowallet.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -64,7 +66,17 @@ fun WalletApp(viewModel: WalletViewModel) {
             )
         }
         composable<PresentationRoute> {
-            PresentationScreen(viewModel = viewModel, onBack = back, onScanAgain = openScanner)
+            val age by viewModel.ageProof.collectAsStateWithLifecycle()
+            if (age.descriptor != null) {
+                AgeProofScreen(
+                    viewModel = viewModel,
+                    onBack = back,
+                    onScanAgain = openScanner,
+                    onTechnical = { nav.navigate(TechnicalRoute) { launchSingleTop = true } },
+                )
+            } else {
+                PresentationScreen(viewModel = viewModel, onBack = back, onScanAgain = openScanner)
+            }
         }
     }
 }

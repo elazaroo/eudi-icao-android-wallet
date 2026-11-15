@@ -147,6 +147,44 @@ data class PresentationState(
     val consumed: Boolean = false,
 )
 
+enum class AgeProgress { PREPARING, COMPUTING, PROVING, SENDING }
+
+enum class AgeStage(val label: String, val progress: AgeProgress) {
+    CONFIRMATION("BiometricPrompt (class 3) user confirmation", AgeProgress.PREPARING),
+    INPUTS("Witness inputs from EF.DG1 and EF.SOD", AgeProgress.PREPARING),
+    WITNESS("Witness: age_proof.wasm in an off-screen WebView", AgeProgress.COMPUTING),
+    PROOF("Groth16 proof: rapidsnark with age_proof.zkey", AgeProgress.PROVING),
+    ENVELOPE("Plaintext age-at-least and HPKE seal", AgeProgress.SENDING),
+    DELIVERY("Delivery and verifier result", AgeProgress.SENDING),
+}
+
+class AgeStageEntry(val stage: AgeStage, val status: StageStatus, val durationMillis: Long?, val detail: String?)
+
+/** [notProvable] holds the reason when the stored document cannot satisfy the statement; null while unchecked. */
+data class AgeProofState(
+    val descriptor: SessionDescriptor? = null,
+    val transport: TransportChoice = TransportChoice.PEERJS,
+    val eligibilityChecked: Boolean = false,
+    val notProvable: Failure? = null,
+    val phase: PresentationPhase = PresentationPhase.IDLE,
+    val stages: List<AgeStageEntry> = emptyList(),
+    val result: ResultFrame? = null,
+    val failure: Failure? = null,
+    val failureTrace: String? = null,
+    val consumed: Boolean = false,
+) {
+    val currentProgress: AgeProgress?
+        get() = stages.firstOrNull { it.status == StageStatus.RUNNING }?.stage?.progress
+}
+
+enum class ProvingKeyStatus { CHECKING, MISSING, INSTALLED, IMPORTING }
+
+data class ProvingKeyState(
+    val status: ProvingKeyStatus = ProvingKeyStatus.CHECKING,
+    val copiedBytes: Long = 0,
+    val failure: Failure? = null,
+)
+
 val Binding.wireName: String
     get() = when (this) {
         Binding.AA -> "aa"

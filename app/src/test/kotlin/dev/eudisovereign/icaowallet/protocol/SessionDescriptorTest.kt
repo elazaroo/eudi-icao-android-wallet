@@ -131,6 +131,37 @@ class SessionDescriptorTest {
     }
 
     @Test
+    fun descriptorWithoutRequestAsksForTheFullPresentation() {
+        assertNull(SessionDescriptor.parse(descriptor(), now).request)
+        assertNull(SessionDescriptor.parse(descriptor(extra = ""","request":null"""), now).request)
+    }
+
+    @Test
+    fun ageOverEighteenRequestIsRecognised() {
+        val parsed = SessionDescriptor.parse(
+            descriptor(relay = "https://relay.example/m/abc", extra = ""","request":"age-over-18""""),
+            now,
+        )
+        assertEquals(SessionRequest.AGE_OVER_18, parsed.request)
+        assertEquals("https://verifier.example", parsed.origin)
+        assertEquals(nonce, parsed.nonce)
+    }
+
+    @Test
+    fun unknownRequestIsRefused() {
+        listOf("age-over-21", "full", "").forEach { value ->
+            val e = assertThrows(value, UnsupportedRequestException::class.java) {
+                SessionDescriptor.parse(descriptor(extra = ""","request":"$value""""), now)
+            }
+            assertEquals(value, e.request)
+            assertTrue(e.message!!, e.message!!.contains("\"$value\""))
+        }
+        assertThrows(DescriptorException::class.java) {
+            SessionDescriptor.parse(descriptor(extra = ""","request":{"type":"age-over-18"}"""), now)
+        }
+    }
+
+    @Test
     fun rejectsBadRelayAndMissingMembers() {
         assertThrows(DescriptorException::class.java) {
             SessionDescriptor.parse(descriptor(relay = "file:///etc/passwd"), now)
