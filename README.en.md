@@ -11,6 +11,19 @@ This is research code. It builds, its JVM tests pass and it has been run end to 
 Spanish passport on a single phone. The [Verification status](#verification-status) section details what has been
 checked and what has not.
 
+## Screenshots
+
+<p>
+  <img src="docs/home-es.png" width="200" alt="Home screen">
+  <img src="docs/add-document-es.png" width="200" alt="Adding a document">
+  <img src="docs/confirm-es.png" width="200" alt="Confirmation before sending">
+  <img src="docs/result-es.png" width="200" alt="Verification result">
+</p>
+
+Home screen with the document number covered, adding a document with an example CAN, confirmation before sending and
+the result returned by the verifier, in the Spanish interface. They were taken with a build compiled with
+`-PwalletAllowScreenCapture=true`; the published build blocks screenshots.
+
 ## Problem statement
 
 The case is specific: proving to a website possession of a State-issued identity document. The ICAO 9303 chip that
@@ -570,6 +583,9 @@ Run with the `release` build (15 November 2026), on the same phone and with the 
 - The signed `release` APK was installed after uninstalling the debug build. Enrolment with the CAN and
   presentation over PeerJS from the simple interface in Spanish, accepted with all four checks passed by a verifier
   whose policy pins only the fingerprint of that build.
+- Presentation of the same DNIe to the public instance, <https://emrtd-verifier.web.app>, accepted with all four
+  checks passed. It was done with a `release` build signed with the same key and compiled with
+  `-PwalletAllowScreenCapture=true`, which keeps the enrolment when installed over the previous one.
 - With `FLAG_SECURE` active, a screenshot taken by `adb` comes out black.
 
 Not checked:

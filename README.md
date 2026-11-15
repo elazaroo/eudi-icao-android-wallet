@@ -11,6 +11,19 @@ Es código de investigación. Compila, sus pruebas JVM pasan y se ha ejecutado d
 pasaporte españoles en un único teléfono. El apartado [Estado de verificación](#estado-de-verificación)
 detalla qué está comprobado y qué no.
 
+## Capturas
+
+<p>
+  <img src="docs/home-es.png" width="200" alt="Pantalla principal">
+  <img src="docs/add-document-es.png" width="200" alt="Alta de un documento">
+  <img src="docs/confirm-es.png" width="200" alt="Confirmación antes de enviar">
+  <img src="docs/result-es.png" width="200" alt="Resultado de la verificación">
+</p>
+
+Pantalla principal con el número de documento tapado, alta con un CAN de ejemplo, confirmación antes de enviar y
+resultado devuelto por el verificador. Están tomadas con una build compilada con `-PwalletAllowScreenCapture=true`;
+la build publicada bloquea las capturas.
+
 ## Planteamiento
 
 El caso es concreto: demostrar ante una web la posesión de un documento de identidad emitido por el Estado. El chip
@@ -574,6 +587,9 @@ Ejecución con la build de `release` (15 de noviembre de 2026), en el mismo tel�
 - El APK de `release` firmado se instaló tras desinstalar la build de depuración. Enrolamiento con el CAN y
   presentación por PeerJS desde la interfaz sencilla en español, aceptada con las cuatro comprobaciones superadas
   por un verificador cuya política solo fija la huella de esa build.
+- Presentación del mismo DNIe ante la instancia pública, <https://emrtd-verifier.web.app>, aceptada con las cuatro
+  comprobaciones superadas. Se hizo con una build de `release` firmada con la misma clave y compilada con
+  `-PwalletAllowScreenCapture=true`, que conserva el enrolamiento al instalarse encima.
 - Con `FLAG_SECURE` activo, una captura de pantalla tomada por `adb` sale en negro.
 
 No comprobado:
