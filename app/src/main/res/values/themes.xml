@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppCompat parent: androidx.biometric 1.1.0 falls back to an AppCompat dialog on API 26-27. -->
+    <style name="Theme.Wallet" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>

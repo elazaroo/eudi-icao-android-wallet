@@ -1,0 +1,9 @@
+-keep class org.bouncycastle.** { *; }
+-keep class org.jmrtd.** { *; }
+-keep class net.sf.scuba.** { *; }
+-keep class org.ejbca.cvc.** { *; }
+-dontwarn org.bouncycastle.**
+-dontwarn org.jmrtd.**
+-dontwarn net.sf.scuba.**
+-dontwarn org.ejbca.cvc.**
+-dontwarn javax.naming.**
