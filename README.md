@@ -209,6 +209,43 @@ build de depuración, que es la única que permite tráfico en claro.
 La presentación sale del wallet ya sellada con HPKE. El servidor de señalización de PeerJS y el relay solo ven
 texto cifrado.
 
+## Prueba de mayoría de edad (experimental)
+
+Esta rama añade una tercera forma de responder a un verificador. Cuando el descriptor de sesión trae
+`"request": "age-over-18"`, el wallet no envía EF.DG1 ni EF.SOD: genera en el teléfono una prueba de conocimiento
+cero de que el titular tiene 18 años o más y envía solo esa prueba, sus valores públicos y el certificado del
+Document Signer. El circuito, lo que demuestra y la verificación están descritos en `eudi-icao-web-verifier`.
+
+Pasos, tras escanear el QR:
+
+1. La pantalla de confirmación indica que el sitio solo quiere comprobar la mayoría de edad, qué se envía (la
+   prueba, el certificado de la autoridad que firmó el documento y la fecha de hoy) y qué no (nombre, número de
+   documento, fecha de nacimiento). El titular confirma con BiometricPrompt de clase 3. En este flujo no se usa la
+   clave del dispositivo ni la atestación.
+2. Las entradas del circuito se calculan a partir del EF.DG1 y el EF.SOD guardados (`zk/AgeProofInputs.kt`), con la
+   fecha UTC del día y un reto derivado del nonce y del origen de la sesión.
+3. El testigo se calcula con el generador WebAssembly del circuito en un WebView fuera de pantalla que solo puede
+   cargar sus propios ficheros (`zk/WitnessCalculator.kt`).
+4. La prueba Groth16 la genera la librería nativa rapidsnark (`zk/Groth16Prover.kt`) con la clave de prueba.
+5. El texto en claro se sella con HPKE y se entrega por los mismos transportes que la presentación completa. El
+   resultado muestra las tres comprobaciones del verificador.
+
+La clave de prueba pesa 243 MB y no va en el APK. La aplicación la descarga la primera vez, desde la Release de
+este repositorio, a su almacenamiento privado, y solo la acepta si su tamaño y su SHA-256 coinciden con los
+fijados en la build. La vista técnica muestra su estado y permite importarla desde un fichero o eliminarla.
+
+Medido en un teléfono con un pasaporte español real (15 de noviembre de 2026): entradas en 10 ms, testigo en
+3,0 s (14,6 MB), prueba en 2,6 s, sellado en 37 ms y entrega en 1,4 s; 8,6 s en total con la huella. El texto en
+claro ocupó 3463 bytes, de los que 1421 son el certificado. El verificador lo aceptó.
+
+Lo que no demuestra:
+
+- No demuestra posesión del documento. Quien tenga el EF.DG1 y el EF.SOD de un adulto puede generar pruebas
+  válidas sin el chip y sin este teléfono, y no hay nada que lo limite o lo revoque.
+- El certificado del Document Signer viaja en claro y revela el tipo de documento y el periodo de uso de esa
+  clave.
+- La clave de prueba procede de una ceremonia con una sola contribución: es una demostración.
+
 ## Vínculo chip-dispositivo
 
 La firma del nonce en cada sesión la hace la clave del dispositivo, no el chip. Lo que da valor a esa firma es la
@@ -526,7 +563,7 @@ corresponde fijar es la de la build de `release` firmada con la clave propia.
 Comprobado, en Windows 11 con Temurin JDK 21, Gradle 9.5.1 y AGP 9.3.3:
 
 - `assembleDebug` compila y empaqueta el APK de depuración sin errores.
-- `testDebugUnitTest` ejecuta 117 pruebas JVM en 16 clases, sin fallos y sin omisiones cuando el SOD de muestra
+- `testDebugUnitTest` ejecuta 145 pruebas JVM en 20 clases, sin fallos y sin omisiones cuando el SOD de muestra
   está presente.
 - `assembleRelease` produce un APK sin firmar cuando faltan las propiedades de firma y uno firmado cuando están
   las cuatro; la firma se comprobó con `apksigner` y el APK firmado se instaló y se usó en un teléfono.
@@ -554,6 +591,9 @@ Las pruebas JVM cubren la lógica que no depende de Android:
   interceptor de OkHttp.
 - Interfaz: conversión de fechas DD/MM/AAAA al formato de la MRZ con sus casos inválidos, ocultación de datos
   personales, clasificación de fallos y agrupación de los pasos de lectura en fases.
+- Prueba de mayoría de edad: entradas del circuito contra vectores compartidos con el verificador en los dos
+  perfiles, reto de sesión, descriptor con y sin `request`, texto en claro, trama de resultado y descarga de la
+  clave de prueba (redirecciones solo por https, hash, cuerpo truncado, cancelación y espacio insuficiente).
 
 Ejecución en un dispositivo (14 de noviembre de 2026), con la build de depuración en un teléfono Android con
 StrongBox (Android 17) y un pasaporte español en vigor:
@@ -677,4 +717,8 @@ La validación de Passive Authentication contra el SOD de muestra público se hi
 
 ## Licencia
 
-Apache License 2.0. El texto completo está en [LICENSE](LICENSE).
+El código propio de este repositorio se distribuye bajo Apache License 2.0; el texto completo está en
+[LICENSE](LICENSE).
+
+En esta rama el APK incluye el generador de testigos compilado a partir del circuito de `eudi-icao-web-verifier`,
+que es GPL-3.0, y la librería rapidsnark, LGPL-3.0. La distribución de ese APK queda sujeta a la GPL-3.0.
