@@ -11,6 +11,7 @@ import dev.eudisovereign.icaowallet.protocol.DescriptorException
 import dev.eudisovereign.icaowallet.protocol.ProofFormatException
 import dev.eudisovereign.icaowallet.transport.TransportException
 import dev.eudisovereign.icaowallet.zk.AgeProofInputException
+import dev.eudisovereign.icaowallet.zk.KeyDownloadException
 import dev.eudisovereign.icaowallet.zk.ProverException
 import dev.eudisovereign.icaowallet.zk.ProvingKeyException
 import dev.eudisovereign.icaowallet.zk.WitnessException
@@ -53,11 +54,21 @@ enum class Problem {
     PROOF_FAILED,
     KEY_FILE_REJECTED,
     KEY_IMPORT_FAILED,
+    KEY_DOWNLOAD_NO_NETWORK,
+    KEY_DOWNLOAD_HTTP,
+    KEY_DOWNLOAD_NO_SPACE,
+    KEY_DOWNLOAD_MISMATCH,
+    KEY_DOWNLOAD_CANCELLED,
+    KEY_DOWNLOAD_FAILED,
+    KEY_REMOVE_FAILED,
     UNEXPECTED,
 }
 
-/** A categorised failure; [detail] is the untranslated technical text shown only in detail views. */
-class Failure(val problem: Problem, val detail: String)
+/**
+ * A categorised failure; [detail] is the untranslated technical text shown only in detail views.
+ * [number] fills the placeholder of the title or hint of problems that carry one, such as an HTTP status.
+ */
+class Failure(val problem: Problem, val detail: String, val number: Long? = null)
 
 enum class EnrolmentNotice { NEW_KEY_DELETED, PREVIOUS_DELETED, CLEANUP_FAILED }
 
@@ -100,6 +111,22 @@ object Problems {
     fun ofKeyImport(e: Throwable): Problem =
         if (e is ProvingKeyException.WrongFile) Problem.KEY_FILE_REJECTED else Problem.KEY_IMPORT_FAILED
 
+    fun ofKeyDownload(e: Throwable): Failure {
+        val problem = when (e) {
+            is KeyDownloadException.NoNetwork, is KeyDownloadException.Interrupted -> Problem.KEY_DOWNLOAD_NO_NETWORK
+            is KeyDownloadException.Http -> Problem.KEY_DOWNLOAD_HTTP
+            is KeyDownloadException.InsufficientSpace -> Problem.KEY_DOWNLOAD_NO_SPACE
+            is KeyDownloadException.Mismatch -> Problem.KEY_DOWNLOAD_MISMATCH
+            else -> Problem.KEY_DOWNLOAD_FAILED
+        }
+        val number = when (e) {
+            is KeyDownloadException.Http -> e.status.toLong()
+            is KeyDownloadException.InsufficientSpace -> (e.required + MEGABYTE - 1) / MEGABYTE
+            else -> null
+        }
+        return Failure(problem, detail(e), number)
+    }
+
     fun ofNfc(nfc: NfcAvailability): Problem? = when (nfc) {
         NfcAvailability.READY -> null
         NfcAvailability.DISABLED -> Problem.NFC_OFF
@@ -125,6 +152,7 @@ object Problems {
             is IllegalArgumentException,
             -> message
             is EnrollmentStoreException, is TransportException -> withCause(e)
+            is KeyDownloadException -> message
             else -> "${e.javaClass.simpleName}: $message"
         }
     }

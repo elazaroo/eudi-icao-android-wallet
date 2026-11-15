@@ -3,6 +3,7 @@ package dev.eudisovereign.icaowallet.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -172,8 +173,10 @@ fun ProblemCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(failure.problem.titleRes()), style = MaterialTheme.typography.titleMedium)
-            failure.problem.hintRes()?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
+            Text(failureText(failure.problem.titleRes(), failure.number), style = MaterialTheme.typography.titleMedium)
+            failure.problem.hintRes()?.let {
+                Text(failureText(it, failure.number), style = MaterialTheme.typography.bodyMedium)
+            }
             actions()
             DetailsToggle(expanded) { expanded = !expanded }
             if (expanded) {
@@ -183,6 +186,10 @@ fun ProblemCard(
         }
     }
 }
+
+@Composable
+private fun failureText(@StringRes id: Int, number: Long?): String =
+    if (number == null) stringResource(id) else stringResource(id, number)
 
 @Composable
 fun MessageCard(title: String, text: String?, warning: Boolean, content: @Composable ColumnScope.() -> Unit = {}) {

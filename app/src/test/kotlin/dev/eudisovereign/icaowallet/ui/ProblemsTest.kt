@@ -12,6 +12,7 @@ import dev.eudisovereign.icaowallet.nfc.ReadStep
 import dev.eudisovereign.icaowallet.protocol.DescriptorException
 import dev.eudisovereign.icaowallet.protocol.ResultFrame
 import dev.eudisovereign.icaowallet.transport.TransportException
+import dev.eudisovereign.icaowallet.zk.KeyDownloadException
 import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -105,6 +106,21 @@ class ProblemsTest {
         )
         BiometricReadiness.entries.filter { it != BiometricReadiness.READY && it != BiometricReadiness.NONE_ENROLLED }
             .forEach { assertEquals(Problem.BIOMETRIC_UNAVAILABLE, Problems.ofBiometric(it)) }
+    }
+
+    @Test
+    fun keyDownloadFailuresAreCategorised() {
+        val http = Problems.ofKeyDownload(KeyDownloadException.Http(404, "github.com"))
+        assertEquals(Problem.KEY_DOWNLOAD_HTTP, http.problem)
+        assertEquals(404L, http.number)
+        assertEquals("HTTP 404 from github.com", http.detail)
+        val space = Problems.ofKeyDownload(KeyDownloadException.InsufficientSpace(1_000, 310_463_742))
+        assertEquals(Problem.KEY_DOWNLOAD_NO_SPACE, space.problem)
+        assertEquals(311L, space.number)
+        assertEquals(Problem.KEY_DOWNLOAD_NO_NETWORK, Problems.ofKeyDownload(KeyDownloadException.NoNetwork("unreachable")).problem)
+        assertEquals(Problem.KEY_DOWNLOAD_NO_NETWORK, Problems.ofKeyDownload(KeyDownloadException.Interrupted("ended")).problem)
+        assertEquals(Problem.KEY_DOWNLOAD_MISMATCH, Problems.ofKeyDownload(KeyDownloadException.Mismatch("sha")).problem)
+        assertEquals(Problem.KEY_DOWNLOAD_FAILED, Problems.ofKeyDownload(KeyDownloadException.Storage("disk")).problem)
     }
 
     @Test

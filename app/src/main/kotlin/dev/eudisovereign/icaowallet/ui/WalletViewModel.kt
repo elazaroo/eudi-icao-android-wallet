@@ -52,6 +52,7 @@ import dev.eudisovereign.icaowallet.zk.AgeStatement
 import dev.eudisovereign.icaowallet.zk.Groth16Prover
 import dev.eudisovereign.icaowallet.zk.PreparedAgeProof
 import dev.eudisovereign.icaowallet.zk.ProverException
+import dev.eudisovereign.icaowallet.zk.ProvingKeyException
 import dev.eudisovereign.icaowallet.zk.ProvingKeyStore
 import dev.eudisovereign.icaowallet.zk.Witness
 import dev.eudisovereign.icaowallet.zk.WitnessCalculator
@@ -127,6 +128,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private var ageJob: Job? = null
     private var eligibilityJob: Job? = null
     private var keyImportJob: Job? = null
+    private var keyDownloadJob: Job? = null
+    private var keyRemoveJob: Job? = null
     private var technicalJob: Job? = null
     private val tagClaimed = AtomicBoolean(false)
     private val scanInFlight = AtomicBoolean(false)
@@ -140,7 +143,14 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             _storeState.value = state
         }
         viewModelScope.launch { _identity.value = withContext(Dispatchers.IO) { loadIdentity() } }
-        viewModelScope.launch { _provingKey.value = ProvingKeyState(withContext(Dispatchers.IO) { provingKeyStatus() }) }
+        viewModelScope.launch {
+            _provingKey.value = ProvingKeyState(
+                withContext(Dispatchers.IO) {
+                    provingKeys.discardLeftovers()
+                    provingKeyStatus()
+                },
+            )
+        }
     }
 
     private fun loadIdentity(): IdentityState = try {
@@ -621,8 +631,74 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private fun provingKeyStatus(): ProvingKeyStatus =
         if (provingKeys.isInstalled()) ProvingKeyStatus.INSTALLED else ProvingKeyStatus.MISSING
 
+    private val provingKeyBusy: Boolean
+        get() = keyImportJob?.isActive == true || keyDownloadJob?.isActive == true || keyRemoveJob?.isActive == true ||
+            ageJob?.isActive == true
+
+    fun downloadProvingKey() {
+        val current = _provingKey.value.status
+        if (provingKeyBusy || current == ProvingKeyStatus.INSTALLED || current == ProvingKeyStatus.CHECKING) return
+        _provingKey.value = ProvingKeyState(ProvingKeyStatus.DOWNLOADING)
+        keyDownloadJob = viewModelScope.launch {
+            val failure = try {
+                provingKeys.download { received -> _provingKey.update { it.copy(copiedBytes = received) } }
+                null
+            } catch (e: CancellationException) {
+                _provingKey.value = ProvingKeyState(
+                    ProvingKeyStatus.MISSING,
+                    failure = Failure(Problem.KEY_DOWNLOAD_CANCELLED, "The download was cancelled; the partial file was deleted."),
+                )
+                throw e
+            } catch (e: Exception) {
+                Problems.ofKeyDownload(e)
+            }
+            val status = withContext(Dispatchers.IO) { provingKeyStatus() }
+            _provingKey.value = ProvingKeyState(status, failure = failure)
+            if (status == ProvingKeyStatus.INSTALLED) expireStaleAgeSession()
+        }
+    }
+
+    fun cancelProvingKeyDownload() {
+        keyDownloadJob?.cancel()
+    }
+
+    fun removeProvingKey() {
+        if (provingKeyBusy || _provingKey.value.status != ProvingKeyStatus.INSTALLED) return
+        keyRemoveJob = viewModelScope.launch {
+            val failure = withContext(Dispatchers.IO) {
+                try {
+                    provingKeys.remove()
+                    null
+                } catch (e: ProvingKeyException) {
+                    Failure(Problem.KEY_REMOVE_FAILED, Problems.detail(e))
+                }
+            }
+            _provingKey.value = ProvingKeyState(withContext(Dispatchers.IO) { provingKeyStatus() }, failure = failure)
+        }
+    }
+
+    // A session that went stale during the download cannot be answered; the verifier needs a new code.
+    private fun expireStaleAgeSession() {
+        _ageProof.update { state ->
+            val descriptor = state.descriptor
+            val settled = state.consumed || state.result != null || state.phase == PresentationPhase.RUNNING
+            if (descriptor == null || settled || descriptor.isFresh(System.currentTimeMillis())) {
+                state
+            } else {
+                state.copy(
+                    expired = true,
+                    failure = Failure(
+                        Problem.SESSION_EXPIRED,
+                        "The session descriptor is more than 5 minutes old; it expired while the proving key was downloading.",
+                    ),
+                    failureTrace = null,
+                )
+            }
+        }
+    }
+
     fun importProvingKey(uri: Uri) {
-        if (keyImportJob?.isActive == true || ageJob?.isActive == true) return
+        if (provingKeyBusy) return
         _provingKey.value = ProvingKeyState(ProvingKeyStatus.IMPORTING)
         keyImportJob = viewModelScope.launch {
             val failure = try {
@@ -687,6 +763,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 Failure(Problem.BUSY, "The age proof is not possible while an enrolment read is running.")
             presentationJob?.isActive == true -> Failure(Problem.BUSY, "A presentation is in progress")
             keyImportJob?.isActive == true -> Failure(Problem.BUSY, "The proving key is being imported")
+            keyDownloadJob?.isActive == true -> Failure(Problem.BUSY, "The proving key is being downloaded")
             enrollment == null -> Failure(Problem.NO_DOCUMENT, "Enrol a document before proving its holder's age.")
             !provingKeys.isInstalled() ->
                 Failure(Problem.PROVING_KEY_MISSING, "${ProvingKeyStore.FILE_NAME} is not in the app storage")

@@ -47,6 +47,13 @@ fun Problem.titleRes(): Int = when (this) {
     Problem.PROOF_FAILED -> R.string.problem_proof_failed
     Problem.KEY_FILE_REJECTED -> R.string.problem_key_file_rejected
     Problem.KEY_IMPORT_FAILED -> R.string.problem_key_import_failed
+    Problem.KEY_DOWNLOAD_NO_NETWORK -> R.string.problem_key_download_no_network
+    Problem.KEY_DOWNLOAD_HTTP -> R.string.problem_key_download_http
+    Problem.KEY_DOWNLOAD_NO_SPACE -> R.string.problem_key_download_no_space
+    Problem.KEY_DOWNLOAD_MISMATCH -> R.string.problem_key_download_mismatch
+    Problem.KEY_DOWNLOAD_CANCELLED -> R.string.problem_key_download_cancelled
+    Problem.KEY_DOWNLOAD_FAILED -> R.string.problem_key_download_failed
+    Problem.KEY_REMOVE_FAILED -> R.string.problem_key_remove_failed
     Problem.UNEXPECTED -> R.string.problem_unexpected
 }
 
@@ -77,6 +84,12 @@ fun Problem.hintRes(): Int? = when (this) {
     Problem.PROOF_FAILED -> R.string.hint_try_again
     Problem.KEY_FILE_REJECTED -> R.string.hint_key_file_rejected
     Problem.KEY_IMPORT_FAILED -> R.string.hint_key_import_failed
+    Problem.KEY_DOWNLOAD_NO_NETWORK -> R.string.hint_key_download_no_network
+    Problem.KEY_DOWNLOAD_HTTP -> R.string.hint_key_download_http
+    Problem.KEY_DOWNLOAD_NO_SPACE -> R.string.hint_key_download_no_space
+    Problem.KEY_DOWNLOAD_MISMATCH -> R.string.hint_key_download_mismatch
+    Problem.KEY_DOWNLOAD_FAILED, Problem.KEY_REMOVE_FAILED -> R.string.hint_try_again
+    Problem.KEY_DOWNLOAD_CANCELLED,
     Problem.BUSY, Problem.READ_CANCELLED, Problem.NO_DOCUMENT, Problem.DELETE_FAILED, Problem.TECHNICAL_UNAVAILABLE,
     Problem.BIOMETRIC_CANCELLED, Problem.SIGNING_FAILED, Problem.CANCELLED_BEFORE_SEND,
     -> null

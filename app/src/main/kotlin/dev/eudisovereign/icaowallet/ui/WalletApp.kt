@@ -68,12 +68,7 @@ fun WalletApp(viewModel: WalletViewModel) {
         composable<PresentationRoute> {
             val age by viewModel.ageProof.collectAsStateWithLifecycle()
             if (age.descriptor != null) {
-                AgeProofScreen(
-                    viewModel = viewModel,
-                    onBack = back,
-                    onScanAgain = openScanner,
-                    onTechnical = { nav.navigate(TechnicalRoute) { launchSingleTop = true } },
-                )
+                AgeProofScreen(viewModel = viewModel, onBack = back, onScanAgain = openScanner)
             } else {
                 PresentationScreen(viewModel = viewModel, onBack = back, onScanAgain = openScanner)
             }

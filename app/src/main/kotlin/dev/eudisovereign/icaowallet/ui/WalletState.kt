@@ -160,7 +160,10 @@ enum class AgeStage(val label: String, val progress: AgeProgress) {
 
 class AgeStageEntry(val stage: AgeStage, val status: StageStatus, val durationMillis: Long?, val detail: String?)
 
-/** [notProvable] holds the reason when the stored document cannot satisfy the statement; null while unchecked. */
+/**
+ * [notProvable] holds the reason when the stored document cannot satisfy the statement; null while unchecked.
+ * [expired] is set when the session went stale while the proving key was being downloaded.
+ */
 data class AgeProofState(
     val descriptor: SessionDescriptor? = null,
     val transport: TransportChoice = TransportChoice.PEERJS,
@@ -172,13 +175,15 @@ data class AgeProofState(
     val failure: Failure? = null,
     val failureTrace: String? = null,
     val consumed: Boolean = false,
+    val expired: Boolean = false,
 ) {
     val currentProgress: AgeProgress?
         get() = stages.firstOrNull { it.status == StageStatus.RUNNING }?.stage?.progress
 }
 
-enum class ProvingKeyStatus { CHECKING, MISSING, INSTALLED, IMPORTING }
+enum class ProvingKeyStatus { CHECKING, MISSING, INSTALLED, IMPORTING, DOWNLOADING }
 
+/** [copiedBytes] counts the bytes imported or downloaded so far. */
 data class ProvingKeyState(
     val status: ProvingKeyStatus = ProvingKeyStatus.CHECKING,
     val copiedBytes: Long = 0,

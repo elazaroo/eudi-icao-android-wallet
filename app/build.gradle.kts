@@ -24,9 +24,17 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         // targetSdk 37 gates all LAN traffic behind the ACCESS_LOCAL_NETWORK runtime permission.
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0-age-proof.1"
         buildConfigField("boolean", "ALLOW_SCREEN_CAPTURE", allowScreenCapture.toString())
+        // The Groth16 proving key published with this release; it is downloaded on first use, never bundled.
+        buildConfigField(
+            "String",
+            "PROVING_KEY_URL",
+            "\"https://github.com/elazaroo/eudi-icao-android-wallet/releases/download/v0.2.0-age-proof.1/age_proof.zkey\"",
+        )
+        buildConfigField("long", "PROVING_KEY_SIZE", "243354878L")
+        buildConfigField("String", "PROVING_KEY_SHA256", "\"4afb3c8b42d64031977eaa778bb86eca86157e5ea747aa2980d388e703d71bfe\"")
     }
 
     signingConfigs {

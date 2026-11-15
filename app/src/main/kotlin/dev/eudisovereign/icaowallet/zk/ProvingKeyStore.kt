@@ -19,22 +19,36 @@ sealed class ProvingKeyException(message: String, cause: Throwable? = null) : Ex
 }
 
 /**
- * The Groth16 proving key is not part of the APK. It is imported once through the system file picker into
- * app-private storage and accepted only when its length and SHA-256 are those of the published artefact.
+ * The Groth16 proving key is not part of the APK. It is downloaded once, or imported through the system file picker,
+ * into app-private storage and accepted only when its length and SHA-256 are those of the published artefact.
  */
 class ProvingKeyStore(context: Context) {
 
     private val appContext = context.applicationContext
+    private val downloader = ProvingKeyDownloader(ProvingKeyDownloader.defaultClient(), ProvingKeySource.PUBLISHED)
     private val directory = File(appContext.noBackupFilesDir, "zk")
     val file = File(directory, FILE_NAME)
     private val partial = File(directory, "$FILE_NAME.part")
 
-    /** Verified when it was imported; afterwards only its length is checked. */
+    /** Verified when it was stored; afterwards only its length is checked. */
     fun isInstalled(): Boolean = file.isFile && file.length() == EXPECTED_SIZE
 
     fun requireInstalled(): File {
         if (!isInstalled()) throw ProvingKeyException.Missing()
         return file
+    }
+
+    suspend fun download(onProgress: (Long) -> Unit) = downloader.download(file, onProgress)
+
+    fun remove() {
+        discardLeftovers()
+        if (file.exists() && !file.delete()) throw ProvingKeyException.Io("Cannot delete ${file.path}")
+    }
+
+    /** Temporary files of a copy or download that the process did not live to finish. */
+    fun discardLeftovers() {
+        if (partial.exists()) partial.delete()
+        directory.listFiles { candidate -> candidate.name.endsWith(ProvingKeyDownloader.TEMP_SUFFIX) }?.forEach { it.delete() }
     }
 
     suspend fun import(uri: Uri, onProgress: (Long) -> Unit): Unit = withContext(Dispatchers.IO) {
@@ -94,8 +108,9 @@ class ProvingKeyStore(context: Context) {
 
     companion object {
         const val FILE_NAME = "age_proof.zkey"
-        const val EXPECTED_SIZE = 243_354_878L
-        const val EXPECTED_SHA256 = "4afb3c8b42d64031977eaa778bb86eca86157e5ea747aa2980d388e703d71bfe"
+        val EXPECTED_SIZE = ProvingKeySource.PUBLISHED.size
+        val EXPECTED_SHA256 = ProvingKeySource.PUBLISHED.sha256
+        val DOWNLOAD_URL = ProvingKeySource.PUBLISHED.url
         private const val BUFFER_BYTES = 1 shl 20
         private const val PROGRESS_STEP = 8L shl 20
     }

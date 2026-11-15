@@ -115,9 +115,18 @@
     <string name="age_sent_note">La prueba se calcula en este teléfono a partir de tu documento. El certificado muestra qué autoridad firmó el documento y en qué periodo estaba en uso.</string>
     <string name="age_kept_title">Qué no se envía</string>
     <string name="age_checking_document">Comprobando que tu documento sirve para esta prueba.</string>
-    <string name="age_key_missing_text">La prueba de edad necesita una clave de prueba de 243 MB que no viene incluida en la aplicación. Importa el fichero age_proof.zkey en la vista técnica, sección Prueba de edad.</string>
+    <string name="age_key_missing_text">Para demostrar tu edad, la aplicación necesita un fichero de %1$d MB que solo descarga una vez.</string>
     <string name="age_key_importing">La clave de prueba se está importando en la vista técnica.</string>
-    <string name="age_open_technical">Abrir la vista técnica</string>
+    <string name="key_download_title">Descarga única</string>
+    <string name="key_download_action">Descargar %1$d MB</string>
+    <string name="key_download_metered">Esta conexión es de uso medido, como los datos móviles. La descarga puede contar para tu límite de datos.</string>
+    <string name="key_download_offline">Ahora mismo no hay conexión a internet.</string>
+    <string name="key_downloading_title">Descargando</string>
+    <string name="key_download_progress">%1$d de %2$d MB (%3$d %%)</string>
+    <string name="key_download_leave_note">Puedes salir de esta pantalla. La descarga continúa mientras la aplicación siga abierta.</string>
+    <string name="key_download_cancel">Cancelar la descarga</string>
+    <string name="key_remove_title">Eliminar la clave de prueba</string>
+    <string name="key_remove_text">La clave de prueba de %1$d MB se eliminará de este teléfono. Habrá que descargarla de nuevo antes de la próxima comprobación de edad.</string>
     <string name="age_running_text">Demostrando a %1$s que eres mayor de 18 años</string>
     <string name="age_progress_preparing">Preparando</string>
     <string name="age_progress_computing">Calculando</string>
@@ -209,6 +218,13 @@
     <string name="problem_proof_failed">No se ha podido generar la prueba</string>
     <string name="problem_key_file_rejected">Este fichero no es la clave de prueba</string>
     <string name="problem_key_import_failed">No se ha podido importar la clave de prueba</string>
+    <string name="problem_key_download_no_network">No hay conexión con el servidor de descarga</string>
+    <string name="problem_key_download_http">El servidor de descarga ha respondido con el estado HTTP %1$d</string>
+    <string name="problem_key_download_no_space">No hay espacio libre suficiente para la clave de prueba</string>
+    <string name="problem_key_download_mismatch">El fichero descargado no es la clave de prueba esperada</string>
+    <string name="problem_key_download_cancelled">Descarga cancelada</string>
+    <string name="problem_key_download_failed">No se ha podido descargar la clave de prueba</string>
+    <string name="problem_key_remove_failed">No se ha podido eliminar la clave de prueba</string>
     <string name="problem_unexpected">Algo ha fallado</string>
 
     <string name="hint_wrong_can">Comprueba el número de 6 cifras impreso en el anverso de la tarjeta y vuelve a intentarlo.</string>
@@ -232,9 +248,13 @@
     <string name="hint_new_code">Puede que el sitio web ya haya usado esta solicitud. Recarga su página y escanea el código nuevo.</string>
     <string name="hint_unsupported_request">Esta cartera puede acreditar tu identidad o que eres mayor de 18 años. Abre Detalles para ver qué ha pedido el sitio web.</string>
     <string name="hint_age_not_provable">O el titular no es mayor de 18 años o el documento no es de los que admite esta prueba. No se ha enviado nada.</string>
-    <string name="hint_proving_key_missing">Importa el fichero age_proof.zkey en la vista técnica, sección Prueba de edad.</string>
+    <string name="hint_proving_key_missing">Descárgala en esta pantalla o en la vista técnica, sección Prueba de edad.</string>
     <string name="hint_key_file_rejected">Elige el fichero age_proof.zkey publicado con el verificador. Su tamaño y su SHA-256 deben coincidir exactamente.</string>
     <string name="hint_key_import_failed">Comprueba que el teléfono tiene suficiente espacio libre y vuelve a intentarlo.</string>
+    <string name="hint_key_download_no_network">Comprueba la conexión a internet y vuelve a intentarlo. La descarga empieza de nuevo desde el principio.</string>
+    <string name="hint_key_download_http">Puede que el fichero no esté disponible durante un tiempo. Vuelve a intentarlo más tarde.</string>
+    <string name="hint_key_download_no_space">La descarga necesita %1$d MB de espacio libre. Libera espacio en el teléfono y vuelve a intentarlo.</string>
+    <string name="hint_key_download_mismatch">Se ha eliminado el fichero. Vuelve a intentarlo; si sigue ocurriendo, puede que la red esté alterando la descarga.</string>
 
     <string name="readiness_nfc_ready">NFC activado</string>
     <string name="readiness_nfc_disabled">El NFC está desactivado</string>
@@ -347,14 +367,18 @@
     <string name="tech_key_label">Clave de prueba</string>
     <string name="tech_key_checking">Comprobando el almacenamiento de la aplicación.</string>
     <string name="tech_key_missing">No instalada</string>
-    <string name="tech_key_installed">Instalada, SHA-256 verificado al importarla</string>
+    <string name="tech_key_installed">Instalada, %1$,d bytes, SHA-256 verificado al guardarla</string>
     <string name="tech_key_importing">Importando: %1$d de %2$d MB</string>
+    <string name="tech_key_downloading">Descargando: %1$s</string>
     <string name="tech_key_file">Fichero</string>
+    <string name="tech_key_source">Dirección de descarga</string>
     <string name="tech_key_size">Tamaño esperado</string>
     <string name="tech_key_size_value">%1$,d bytes</string>
     <string name="tech_key_sha256">SHA-256 esperado</string>
-    <string name="tech_key_note">La clave de prueba no forma parte de la aplicación. El fichero elegido se copia al almacenamiento privado de la aplicación mientras se calcula su hash, y solo se conserva si su tamaño y su SHA-256 coinciden.</string>
-    <string name="tech_key_import">Importar la clave de prueba</string>
+    <string name="tech_key_note">La clave de prueba no forma parte de la aplicación. Se descarga por https, o se copia desde un fichero elegido, al almacenamiento privado de la aplicación mientras se calcula su hash, y solo se conserva si su tamaño y su SHA-256 coinciden.</string>
+    <string name="tech_key_download">Descargar la clave de prueba (%1$d MB)</string>
+    <string name="tech_key_import">Importar desde un fichero</string>
+    <string name="tech_key_remove">Eliminar la clave de prueba</string>
 
     <string name="mrz_document_code">Código de documento</string>
     <string name="mrz_issuing_state">Estado emisor</string>

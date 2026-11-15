@@ -38,7 +38,7 @@ import dev.eudisovereign.icaowallet.ui.theme.Mono
 import dev.eudisovereign.icaowallet.ui.theme.StatusColors
 
 @Composable
-fun AgeProofScreen(viewModel: WalletViewModel, onBack: () -> Unit, onScanAgain: () -> Unit, onTechnical: () -> Unit) {
+fun AgeProofScreen(viewModel: WalletViewModel, onBack: () -> Unit, onScanAgain: () -> Unit) {
     val state by viewModel.ageProof.collectAsStateWithLifecycle()
     val store by viewModel.storeState.collectAsStateWithLifecycle()
     val readiness by viewModel.readiness.collectAsStateWithLifecycle()
@@ -67,7 +67,7 @@ fun AgeProofScreen(viewModel: WalletViewModel, onBack: () -> Unit, onScanAgain: 
                 SecondaryAction(stringResource(R.string.action_cancel), onClick = viewModel::cancelAgeProof)
             }
             result != null -> AgeResultContent(state, result, onDone = leave, onScanAgain = onScanAgain)
-            state.consumed -> {
+            state.consumed || state.expired -> {
                 state.failure?.let { ProblemCard(it, details = { AgeDetailLines(state) }) }
                 PrimaryAction(stringResource(R.string.action_scan_new), onClick = onScanAgain)
                 SecondaryAction(stringResource(R.string.action_done), onClick = leave)
@@ -76,7 +76,10 @@ fun AgeProofScreen(viewModel: WalletViewModel, onBack: () -> Unit, onScanAgain: 
                 val overview = (store as? StoreState.Loaded)?.overview
                 val biometric = readiness?.biometric
                 val keyInstalled = key.status == ProvingKeyStatus.INSTALLED
-                AgeConfirmContent(state, descriptor, overview != null, biometric, keyInstalled, key.status, onTechnical)
+                AgeConfirmContent(state, descriptor, overview != null, biometric)
+                if (!keyInstalled) {
+                    ProvingKeyRequired(key, viewModel::downloadProvingKey, viewModel::cancelProvingKeyDownload)
+                }
                 PrimaryAction(
                     text = stringResource(R.string.confirm_action),
                     enabled = activity != null && overview != null && biometric == BiometricReadiness.READY &&
@@ -95,9 +98,6 @@ private fun AgeConfirmContent(
     descriptor: SessionDescriptor,
     hasDocument: Boolean,
     biometric: BiometricReadiness?,
-    keyInstalled: Boolean,
-    keyStatus: ProvingKeyStatus,
-    onTechnical: () -> Unit,
 ) {
     state.failure?.let { ProblemCard(it, details = { AgeDetailLines(state) }) }
     Text(stringResource(R.string.age_site_label), style = MaterialTheme.typography.labelLarge)
@@ -129,20 +129,40 @@ private fun AgeConfirmContent(
         state.notProvable != null -> ProblemCard(state.notProvable)
         !state.eligibilityChecked -> Note(stringResource(R.string.age_checking_document))
     }
-    if (!keyInstalled) {
-        MessageCard(
-            title = stringResource(R.string.problem_proving_key_missing),
-            text = stringResource(
-                if (keyStatus == ProvingKeyStatus.IMPORTING) R.string.age_key_importing else R.string.age_key_missing_text,
-            ),
-            warning = true,
-        ) {
-            SecondaryAction(stringResource(R.string.age_open_technical), onClick = onTechnical)
-        }
-    }
     if (biometric != null && biometric != BiometricReadiness.READY) {
         val problem = Problems.ofBiometric(biometric) ?: Problem.BIOMETRIC_UNAVAILABLE
         ProblemCard(Failure(problem, "BiometricManager BIOMETRIC_STRONG: $biometric"))
+    }
+}
+
+@Composable
+private fun ProvingKeyRequired(key: ProvingKeyState, onDownload: () -> Unit, onCancel: () -> Unit) {
+    key.failure?.let { ProblemCard(it) }
+    when (key.status) {
+        ProvingKeyStatus.CHECKING, ProvingKeyStatus.INSTALLED -> Unit
+        ProvingKeyStatus.IMPORTING -> MessageCard(
+            title = stringResource(R.string.problem_proving_key_missing),
+            text = stringResource(R.string.age_key_importing),
+            warning = false,
+        )
+        ProvingKeyStatus.DOWNLOADING -> MessageCard(
+            title = stringResource(R.string.key_downloading_title),
+            text = downloadProgressText(key.copiedBytes),
+            warning = false,
+        ) {
+            ProvingKeyProgressBar(key.copiedBytes)
+            NetworkNote(rememberNetworkKind())
+            Note(stringResource(R.string.key_download_leave_note))
+            SecondaryAction(stringResource(R.string.key_download_cancel), onClick = onCancel)
+        }
+        ProvingKeyStatus.MISSING -> MessageCard(
+            title = stringResource(R.string.key_download_title),
+            text = stringResource(R.string.age_key_missing_text, provingKeyMegabytes),
+            warning = false,
+        ) {
+            NetworkNote(rememberNetworkKind())
+            PrimaryAction(stringResource(R.string.key_download_action, provingKeyMegabytes), onClick = onDownload)
+        }
     }
 }
 
